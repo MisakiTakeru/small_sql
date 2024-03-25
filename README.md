@@ -1,6 +1,7 @@
 # small_sql
 A project playing around with mysql and sqlalchemy
 
+# Basic initial setup idea
 ## Table classes
 * Wares:
   * ID
@@ -28,3 +29,7 @@ A project playing around with mysql and sqlalchemy
 ## Coding Style and Choices
 * Forced to use OOP and mySQL
 * Will use the Object Relation Mapper (ORM) from sqlalchemy to implement mySQL with nice [small examples](https://github.com/crazyguitar/pysheeet/blob/master/docs/notes/python-sqlalchemy.rst).
+
+# Aftermath
+After having a bit of a nuisance (3 days of troublesolving) getting MySQL to work (having needed to automatically find and run mysqlconfiguration), I have chosen to keep my implementation as simple as possible.
+I understand that stored procedures is a good coding practice since allowing outsiders only access to use the stored procedures, means that they won't be able to launch any commands other than what is allowed making it a strong security measurement. As well as when having several calls almost identical, then we will be able to reuse the stored procedures reducing code density using IN and OUT for small variation possibilities. However with the frustation of wasting 3 days on getting the MySQL to work this was not implemented.
