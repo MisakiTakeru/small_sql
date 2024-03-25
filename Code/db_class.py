@@ -18,14 +18,13 @@ class Ware(Base):
     description = Column(String(100))
     price = Column(Integer)
     stock = Column(Integer)
-    category_id = Column(Integer, ForeignKey('Category.id'))
+    category = Column(String(30))
     
-    category = relationship('Category', back_populates = 'ware')
-    
-    def __init__(self, name, desc, price, stock = 0):
+    def __init__(self, name, desc, price, category, stock = 0):
         self.name = name
         self.description = desc
         self.price = price
+        self.category = category
         self.stock = stock
 
 class Category(Base):
@@ -35,8 +34,6 @@ class Category(Base):
     name = Column(String(30))
     description = Column(String(100))
     
-    ware = relationship('Ware', back_populates = 'category')
-
     def __init__(self, name, desc):
         self.name = name
         self.description = desc
@@ -45,13 +42,15 @@ class Transaction(Base):
     __tablename__ = 'Transaction'
     
     id = Column(Integer, primary_key = True)
-    ware_id = Column(Integer, ForeignKey('Ware.id'))
+    ware_id = Column(Integer)
     time = Column(DATETIME, default = datetime.now)
     amount = Column(Integer)
+    change = Column(Integer)
     transaction_type = Column(String(30))
     
-    def __init__(self, ware_id, amount, trans_type):
+    def __init__(self, ware_id, amount, trans_type, change):
         self.ware_id = ware_id
         self. amount = amount
         self.transaction_type = trans_type
+        self.change = change
 

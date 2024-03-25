@@ -13,6 +13,9 @@ pymysql.install_as_MySQLdb()
 if not database_exists("mysql://test:test@127.0.0.1/small_sql"):
     create_database("mysql://test:test@127.0.0.1/small_sql")
 
+"""
+Function to remove all data in the tables, used to cleanup before a test has been run
+"""
 def cleanup(session):
         try:
             session.query(db_class.Ware).delete()
@@ -26,49 +29,13 @@ def cleanup(session):
             session.query(db_class.Transaction).delete()
         except:
             pass
-        session.commit()   
+        session.commit()
 
-class TestData(unittest.TestCase):
-    def __init__(self):
-
-        self.user_data = {
-            "name": "John Doe",
-            "address": "1234 Main St",
-            "email": "john@doe.com",
-            #"book_statuses": [db_class.BookStatus(**{"timestamp": 1633027442, "user_id": 1, "book_id": 1, "status_borrowed": False, "status_reserved": False, "status_available": True})]
-        }
-        self.other_user_data = {
-            "name": "Jane Doe",
-            "address": "1234 Main St",
-            "email": "jane@doe.com",
-            #"book_statuses": [db_class.BookStatus(**{"timestamp": 1633027442, "user_id": 2, "book_id": 1, "status_borrowed": False, "status_reserved": False, "status_available": True})]
-        }
-
-        self.book_data = {
-            "isbn": "123",
-            "title": "John Book",
-            "author": "John Doe",
-            "release_date": 1619827200,
-            #"book_statuses": [db_class.BookStatus(**{"timestamp": 1633027442, "user_id": 0, "book_id": 0, "status_borrowed": False, "status_reserved": False, "status_available": True})]
-        }
-
-        self.other_book_data = {
-            "isbn": "1234",
-            "title": "Jane Book",
-            "author": "Jane Doe",
-            "release_date": 1619827200,
-            #"book_statuses": [db_class.BookStatus(**{"timestamp": 1633027442, "user_id": 2, "book_id": 2, "status_borrowed": False, "status_reserved": False, "status_available": True})]
-        }
 
 class TestSingletonDatabaseConnect(unittest.TestCase):
     def setUp(self) -> None:
         self.db_url = "mysql://test:test@127.0.0.1/small_sql"
         self.db = SDC(self.db_url)
-        self.data = TestData()
-        self.user_data = self.data.user_data
-        self.other_user_data = self.data.other_user_data
-        self.book_data = self.data.book_data
-        self.other_book_data = self.data.other_book_data
         self.engine = self.db.get_engine()
         self.session = self.db.get_session()
 
@@ -101,13 +68,18 @@ class TestSingletonDatabaseConnect(unittest.TestCase):
         db_class.Category.metadata.create_all(self.engine)
         handler = Datahandler(self.db_url)
         
-        handler.add_ware('yogurt', 10, 'all new yogurt now with a taste of mint', 60)
+        handler.add_ware('yogurt', 10, 'all new yogurt now with a taste of mint', 'Produce', 60)
         
-        yog = self.session.query(db_class.Ware).first()
+        session = self.db.get_session()
+        yog = session.query(db_class.Ware).first()
         self.assertEqual('yogurt', yog.name)
         self.assertEqual('all new yogurt now with a taste of mint', yog.description)
         self.assertEqual(60, yog.price)
         self.assertEqual(10, yog.stock)
+        
+        produce = session.query(db_class.Category).first()
+        
+        self.assertEqual(produce.name, 'Produce')
         
         cleanup(self.session)
     
@@ -119,26 +91,29 @@ class TestSingletonDatabaseConnect(unittest.TestCase):
 
         handler = Datahandler(self.db_url)
         
-        handler.add_ware('cheese', 2, 'new super rotten cheese', 1000)
+        handler.add_ware('cheese', 2, 'new super rotten cheese', 'Produce', 1000)
 
         self.assertRaisesRegex(ValueError, "stock cannot be below 0");\
                                handler.add_ware('cheese', stock =  -4)
     
         handler.add_ware('cheese', stock = 10)
         
-        cheese = self.session.query(db_class.Ware).first()
+        session = self.db.get_session()
+        
+        cheese = session.query(db_class.Ware).first()
         self.assertEqual(12, cheese.stock)
         
         cleanup(self.session)
 
     def test_remove_ware(self):
+        cleanup(self.session)
         self.engine.connect()
         db_class.Ware.metadata.create_all(self.engine)
         db_class.Category.metadata.create_all(self.engine)
 
         handler = Datahandler(self.db_url)
 
-        handler.add_ware('cheese', 2, 'new super rotten cheese', 1000)
+        handler.add_ware('cheese', 2, 'new super rotten cheese', 'Produce', 1000)
 
 # Remove a row, with name cheese and fail to get it.
         trueval = handler.remove_ware('cheese')
@@ -161,19 +136,87 @@ class TestSingletonDatabaseConnect(unittest.TestCase):
    
         handler = Datahandler(self.db_url)
      
-        handler.add_ware('cheese', 2, 'new super rotten cheese', 1000)
+        handler.add_ware('cheese', 2, 'new super rotten cheese', 'Produce', 1000)
+
+
         
         ware_obj = self.session.query(db_class.Ware).first()
         
-        handler.transaction(ware_obj.id, 5)
+        handler.transaction(ware_obj.name, 5)
         
-        trans_obj = self.session.query(db_class.Transaction).first()
-        print(trans_obj)
+        session = self.db.get_session()
         
+        trans_obj = session.query(db_class.Transaction).first()
+
+                
         self.assertEqual(trans_obj.ware_id, ware_obj.id)
         self.assertEqual(trans_obj.amount, 5)
-        self.assertEqual(trans_obj.transaction_type, 'buy')        
+        self.assertEqual(trans_obj.transaction_type, 'buy')
+  
+        ware_obj = session.query(db_class.Ware).first()
+        
+        self.assertEqual(ware_obj.stock, 7)
 
+# Tests both multiple transactions, and if ware stock would become less than 0.
+    def test_multiple_transactions(self):
+        cleanup(self.session)
+        self.engine.connect()
+        
+        db_class.Ware.metadata.create_all(self.engine)
+        db_class.Category.metadata.create_all(self.engine)
+        db_class.Transaction.metadata.create_all(self.engine)
+   
+        handler = Datahandler(self.db_url)
+        handler.add_ware('fumo', 5, 'very cute', 'Doll', 300)
+        handler.add_ware('fumo2', 4, 'even cuter', 'Doll', 500)
+        handler.add_ware('fumo3', 8, 'evil looking', 'Doll', 200)
+        
+        handler.transaction('fumo2', -3)
+        handler.transaction('fumo', -1)
+        handler.transaction('fumo2', 7)
+        handler.transaction('fumo3', -8)
+        
+        session = self.db.get_session()
+        
+        ware_id = session.query(db_class.Ware).filter_by(name = 'fumo2').first().id
+        
+        fumo2_trans1 = session.query(db_class.Transaction).filter_by(ware_id = ware_id).first()
+        
+        self.assertEqual(fumo2_trans1.transaction_type, 'sell')
+        
+        fumo2_amount = session.query(db_class.Transaction).filter_by(ware_id = ware_id).all()
+        
+        self.assertEqual(len(fumo2_amount), 2)
+        
+        with self.assertRaises(ValueError):
+            handler.transaction('fumo3', -3)
+
+    def test_show(self):
+        cleanup(self.session)
+        self.engine.connect()
+        
+        db_class.Ware.metadata.create_all(self.engine)
+        db_class.Category.metadata.create_all(self.engine)
+        db_class.Transaction.metadata.create_all(self.engine)
+   
+        handler = Datahandler(self.db_url)
+        handler.add_ware('fumo', 5, 'very cute', 'Doll', 300)
+        handler.add_ware('fumo2', 4, 'even cuter', 'Doll', 500)
+        handler.add_ware('fumo3', 8, 'evil looking', 'Doll', 200)
+        
+        handler.transaction('fumo2', -3)
+        handler.transaction('fumo', -1)
+        handler.transaction('fumo2', 7)
+        handler.transaction('fumo3', -8)
+        
+        wares = handler.show('Ware')
+        categories = handler.show('Category')
+        transactions = handler.show('Transaction', 'amount',' <  ', 0)
+        
+        
+        self.assertEqual(len(wares), 3)
+        self.assertEqual(len(categories), 1)
+        self.assertEqual(len(transactions), 3)
 
 class CustomTestResult(unittest.TextTestResult):
     def printErrors(self):
