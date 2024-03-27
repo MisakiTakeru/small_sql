@@ -34,6 +34,13 @@ I understand that stored procedures is a good coding practice since allowing out
 # Notes
 When creating a new ware. ONLY for the current session Ware gets updated. To find the new category need to create a new session. With transaction again need to create a new session. Cannot see a reason why.
 
+# Final Solution
+
+* [Database Tables / Classes](Code/db_class.py)
+   * `db_class` contains all of the tables in the database. It uses the Object Relational Mapper from SQLalchemy.
+* [Handler for database calls](Code/handler.py)
+    * `handler.py` handles all interaction with the database.
+
 #### Classes
 ![Classes](Diagrams/classes.png)
 #### Packages
