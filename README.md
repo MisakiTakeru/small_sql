@@ -1,6 +1,3 @@
-# small_sql
-A project playing around with mysql and sqlalchemy
-
 # Basic initial setup idea
 ## Table classes
 * Wares:
@@ -36,3 +33,8 @@ I understand that stored procedures is a good coding practice since allowing out
 
 # Notes
 When creating a new ware. ONLY for the current session Ware gets updated. To find the new category need to create a new session. With transaction again need to create a new session. Cannot see a reason why.
+
+#### Classes
+![Classes](diagrams/classes.png)
+#### Packages
+![draft of project](diagrams/packages.png)
